@@ -116,11 +116,20 @@ defmodule Aatree do
   end
 
 
-  @spec get(key, tree) :: val when key: term(), tree: aatree(), val: term()
+  @spec get(tree, key) :: nil | val when key: term(), tree: aatree(), val: term()
 
+  def get(tree, key) do
+    get(tree, key, nil)
+  end
 
-  def get(key, {_, t}) do
-    get_1(key, t)
+  @spec get(tree, key, default) :: default | val when key: term(), tree: aatree(), val: term(), default: term()
+
+  def get({_, t} = tree, key, default) do
+    if is_defined(key, tree) do
+      get_1(key, t)
+    else
+      default
+    end
   end
 
 
