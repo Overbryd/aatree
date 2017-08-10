@@ -136,6 +136,15 @@ defmodule Aatree do
     value
   end
 
+  @spec put(tree1, key, val) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
+
+  def put(tree, key, val) do
+    if is_defined(key, tree) do
+      update(key, val, tree)
+    else
+      insert(key, val, tree)
+    end
+  end
 
   @spec update(key, val, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
 
