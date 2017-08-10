@@ -384,11 +384,15 @@ defmodule Aatree do
   end
 
 
-  @spec smallest(tree) :: {key, val} when tree: aatree(), key: term(), val: term()
+  @spec smallest(tree) :: nil | {key, val} when tree: aatree(), key: term(), val: term()
 
 
-  def smallest({_, tree}) do
-    smallest_1(tree)
+  def smallest({_, t} = tree) do
+    if is_empty(tree) do
+      nil
+    else
+      smallest_1(t)
+    end
   end
 
 
@@ -420,11 +424,15 @@ defmodule Aatree do
   end
 
 
-  @spec largest(tree) :: {key, val} when tree: aatree(), key: term(), val: term()
+  @spec largest(tree) :: nil | {key, val} when tree: aatree(), key: term(), val: term()
 
 
-  def largest({_, tree}) do
-    largest_1(tree)
+  def largest({_, t} = tree) do
+    if is_empty(tree) do
+      nil
+    else
+      largest_1(t)
+    end
   end
 
 
