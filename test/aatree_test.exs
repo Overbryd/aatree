@@ -99,4 +99,14 @@ defmodule AatreeTest do
     assert Aatree.member?(aatree, 5)
     assert Aatree.member?(aatree, 6) == false
   end
+
+  test "smallest returns the smallest {key, value} pair" do
+    aatree = Enum.reduce([2, 1, 4, 5, 3], Aatree.new, &(Aatree.put(&2, &1, &1 * 2)))
+    assert Aatree.smallest(aatree) == {1, 2}
+  end
+
+  test "largest returns the largest {key, value} pair" do
+    aatree = Enum.reduce([2, 1, 4, 5, 3], Aatree.new, &(Aatree.put(&2, &1, &1 * 2)))
+    assert Aatree.largest(aatree) == {5, 10}
+  end
 end

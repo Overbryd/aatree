@@ -371,23 +371,23 @@ defmodule Aatree do
   end
 
 
-  @spec smallest(tree) :: nil | {key, val} when tree: aatree(), key: term(), val: term()
+  @spec smallest(t) :: nil | {key, val} when key: term(), val: term()
 
-  def smallest({_, t} = tree) do
+  def smallest(%Aatree{tree: {_, t} = tree}) do
     if is_empty(tree) do
       nil
     else
-      smallest_1(t)
+      smallest_t(t)
     end
   end
 
 
-  defp smallest_1({key, value, nil, _larger}) do
+  defp smallest_t({key, value, nil, _larger}) do
     {key, value}
   end
 
-  defp smallest_1({_key, _value, smaller, _larger}) do
-    smallest_1(smaller)
+  defp smallest_t({_key, _value, smaller, _larger}) do
+    smallest_t(smaller)
   end
 
 
@@ -410,24 +410,23 @@ defmodule Aatree do
   end
 
 
-  @spec largest(tree) :: nil | {key, val} when tree: aatree(), key: term(), val: term()
+  @spec largest(t) :: nil | {key, val} when key: term(), val: term()
 
 
-  def largest({_, t} = tree) do
+  def largest(%Aatree{tree: {_, t} = tree}) do
     if is_empty(tree) do
       nil
     else
-      largest_1(t)
+      largest_t(t)
     end
   end
 
-
-  defp largest_1({key, value, _smaller, nil}) do
+  defp largest_t({key, value, _smaller, nil}) do
     {key, value}
   end
 
-  defp largest_1({_key, _value, _smaller, larger}) do
-    largest_1(larger)
+  defp largest_t({_key, _value, _smaller, larger}) do
+    largest_t(larger)
   end
 
 
