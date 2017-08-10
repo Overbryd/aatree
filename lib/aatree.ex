@@ -46,7 +46,7 @@ defmodule Aatree do
 
   @spec new(fun) :: t
 
-  def new(comparator) do
+  def new(comparator: comparator) do
     %Aatree{comparator: comparator}
   end
 

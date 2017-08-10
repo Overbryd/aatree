@@ -14,7 +14,7 @@ defmodule AatreeTest do
 
   test "new with comparator" do
     comparator = fn(a, b) -> Aatree.compare_terms(a, b) end
-    aatree = Aatree.new(comparator)
+    aatree = Aatree.new(comparator: comparator)
     assert %Aatree{comparator: comparator} == aatree
   end
 
@@ -45,7 +45,7 @@ defmodule AatreeTest do
       :smaller, :bigger -> -1
       a, b -> Aatree.compare_terms(a, b)
     end
-    aatree = Aatree.new(comparator)
+    aatree = Aatree.new(comparator: comparator)
     aatree = Aatree.put(aatree, :smaller, 2)
     aatree = Aatree.put(aatree, :bigger, 1)
     aatree = Aatree.put(aatree, :bigger, 0)
@@ -60,7 +60,7 @@ defmodule AatreeTest do
       :smaller, :bigger -> -1
       a, b -> Aatree.compare_terms(a, b)
     end
-    aatree = Aatree.new(comparator)
+    aatree = Aatree.new(comparator: comparator)
     aatree = Aatree.put(aatree, :smaller, 2)
     aatree = Aatree.put(aatree, :bigger, 1)
     assert Aatree.keys(aatree) == [:smaller, :bigger]
