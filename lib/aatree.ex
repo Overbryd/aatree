@@ -134,8 +134,12 @@ defmodule Aatree do
     case cmp.(key, key1) do
       -1 -> is_defined_t(key, cmp, smaller)
       1 -> is_defined_t(key, cmp, bigger)
-      _ -> key === key1
+      0 -> true
     end
+  end
+
+  defp is_defined_t(_key, _cmp, nil) do
+    false
   end
 
   @spec get(t, key) :: nil | val when key: term(), val: term()
@@ -231,7 +235,8 @@ defmodule Aatree do
           t1 ->
             {key1, v, smaller, t1}
         end
-      0 -> insert_1(key, value, cmp, t, s)
+      0 ->
+        :erlang.error({:key_exists, key})
     end
   end
 
@@ -241,10 +246,6 @@ defmodule Aatree do
 
   defp insert_1(key, value, cmp, nil, _s) do
     {key, value, nil, nil}
-  end
-
-  defp insert_1(key, _, cmp, _, _) do
-    :erlang.error({:key_exists, key})
   end
 
   defp count_t({_, _, nil, nil}) do
