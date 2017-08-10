@@ -325,11 +325,14 @@ defmodule Aatree do
   end
 
 
-  @spec delete(key, tree1) :: tree2 when key: term(), tree1: aatree(), tree2: aatree()
+  @spec delete(tree1, key) :: tree2 when key: term(), tree1: aatree(), tree2: aatree()
 
-
-  def delete(key, {s, t}) when is_integer(s) and s >= 0 do
-    {s - 1, delete_1(key, t)}
+  def delete({s, t} = tree, key) when is_integer(s) and s >= 0 do
+    if is_defined(key, tree) do
+      {s - 1, delete_1(key, t)}
+    else
+      tree
+    end
   end
 
 
