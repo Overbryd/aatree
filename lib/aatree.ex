@@ -271,7 +271,7 @@ defmodule Aatree do
 
 
   def balance(t, s) do
-    balance_list(to_list_1(t), s)
+    balance_list(to_list_t(t), s)
   end
 
 
@@ -438,16 +438,16 @@ defmodule Aatree do
   end
 
 
-  defp to_list_1(t) do
-    to_list(t, [])
+  defp to_list_t(t) do
+    to_list_t(t, [])
   end
 
 
   defp to_list_t({key, value, small, big}, l) do
-    to_list(small, [{key, value} | to_list(big, l)])
+    to_list_t(small, [{key, value} | to_list_t(big, l)])
   end
 
-  defp to_list(nil, l) do
+  defp to_list_t(nil, l) do
     l
   end
 
