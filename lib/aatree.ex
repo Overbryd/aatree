@@ -36,231 +36,228 @@ defmodule Aatree do
   end
 
 
+  @type t :: %__MODULE__{
+    tree: aatree,
+    comparator: fun
+  }
 
+  defstruct [tree: {0, nil}, comparator: &__MODULE__.compare_terms/2]
+
+
+  @spec new(fun) :: t
+
+  def new(comparator) do
+    %Aatree{comparator: comparator}
+  end
+
+  @spec new() :: t
+
+  def new, do: %Aatree{}
+
+  @spec compare_terms(term, term) :: 0 | -1 | 1
+
+  def compare_terms(%{__struct__: type1} = term1, %{__struct__: type2} = term2) when type1 === type2 do
+    if function_exported?(type1, :compare, 2) do
+      type1.compare(term1, term2)
+    else
+      do_compare_terms(term1, term2)
+    end
+  end
+
+  def compare_terms(term1, term2), do: do_compare_terms(term1, term2)
+
+  defp do_compare_terms(term1, term2) do
+    cond do
+      term1 === term2 -> 0
+      term1 < term2 -> -1
+      term1 > term2 -> 1
+      term1 == term2 ->
+        case do_compare_terms(hash_term(term1), hash_term(term2)) do
+          0 -> do_compare_terms(fallback_term_hash(term1), fallback_term_hash(term2))
+          hash_comparison_result -> hash_comparison_result
+        end
+    end
+  end
+
+  @key_hash_bucket 4294967296
+
+  # ¡This is only used as a tiebreaker!
+  # For cases when `insert_key !== node_key` but `insert_key == node_key` (e.g.
+  # `1` and `1.0`,) hash the keys to provide consistent ordering.
+  defp hash_term(term) do
+    :erlang.phash2(term, @key_hash_bucket)
+  end
+
+  # In the case that `hash_term(term1) == hash_term(term2)` we can fall back
+  # again to the slower phash function distributed over @key_hash_bucket
+  # integers.
+  # If these two collide, go home.
+  defp fallback_term_hash(term) do
+    :erlang.phash(term, @key_hash_bucket)
+  end
 
   @spec empty() :: aatree()
-
 
   def empty() do
     {0, nil}
   end
 
 
-  @spec is_empty(tree) :: boolean() when tree: aatree()
+  @spec empty?(t) :: boolean()
 
+  def empty?(%Aatree{tree: {0, nil}}), do: true
 
-  def is_empty({0, nil}) do
+  defp is_empty({0, nil}) do
     true
   end
 
-  def is_empty(_) do
+  defp is_empty(_) do
     false
   end
 
 
-  @spec size(tree) :: non_neg_integer() when tree: aatree()
+  @spec count(t) :: non_neg_integer() when t: t()
 
-
-  def size({var_size, _}) when is_integer(var_size) and var_size >= 0 do
+  def count(%Aatree{tree: {var_size, _}}) when is_integer(var_size) and var_size >= 0 do
     var_size
   end
 
+  @spec member?(t, key) :: boolean() when key: term()
 
-  @spec lookup(key, tree) :: :none | {:value, val} when key: term(), val: term(), tree: aatree()
-
-
-  def lookup(key, {_, t}) do
-    lookup_1(key, t)
+  def member?(%Aatree{tree: {_, t}, comparator: cmp}, key) do
+    is_defined_t(key, cmp, t)
   end
 
+  defp is_defined_t(key, _cmp, nil), do: false
 
-  defp lookup_1(key, {key1, _, smaller, _}) when key < key1 do
-    lookup_1(key, smaller)
+  defp is_defined_t(key, cmp, {key1, _, smaller, bigger} = t) do
+    case cmp.(key, key1) do
+      -1 -> is_defined_t(key, cmp, smaller)
+      1 -> is_defined_t(key, cmp, bigger)
+      _ -> key === key1
+    end
   end
 
-  defp lookup_1(key, {key1, _, _, bigger}) when key > key1 do
-    lookup_1(key, bigger)
+  @spec get(t, key) :: nil | val when key: term(), val: term()
+
+  def get(%Aatree{} = aatree, key) do
+    get(aatree, key, nil)
   end
 
-  defp lookup_1(_, {_, value, _, _}) do
-    {:value, value}
-  end
+  @spec get(t, key, default) :: default | val when key: term(), val: term(), default: term()
 
-  defp lookup_1(_, nil) do
-    :none
-  end
-
-
-  @spec is_defined(key, tree) :: boolean() when key: term(), tree: aatree()
-
-
-  def is_defined(key, {_, t}) do
-    is_defined_1(key, t)
-  end
-
-
-  defp is_defined_1(key, {key1, _, smaller, _}) when key < key1 do
-    is_defined_1(key, smaller)
-  end
-
-  defp is_defined_1(key, {key1, _, _, bigger}) when key > key1 do
-    is_defined_1(key, bigger)
-  end
-
-  defp is_defined_1(_, {_, _, _, _}) do
-    true
-  end
-
-  defp is_defined_1(_, nil) do
-    false
-  end
-
-
-  @spec get(tree, key) :: nil | val when key: term(), tree: aatree(), val: term()
-
-  def get(tree, key) do
-    get(tree, key, nil)
-  end
-
-  @spec get(tree, key, default) :: default | val when key: term(), tree: aatree(), val: term(), default: term()
-
-  def get({_, t} = tree, key, default) do
-    if is_defined(key, tree) do
-      get_1(key, t)
+  def get(%Aatree{tree: {_, t}, comparator: cmp} = aatree, key, default) do
+    if member?(aatree, key) do
+      get_1(key, cmp, t)
     else
       default
     end
   end
 
-
-  defp get_1(key, {key1, _, smaller, _}) when key < key1 do
-    get_1(key, smaller)
-  end
-
-  defp get_1(key, {key1, _, _, bigger}) when key > key1 do
-    get_1(key, bigger)
-  end
-
-  defp get_1(_, {_, value, _, _}) do
-    value
-  end
-
-  @spec put(tree1, key, val) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
-
-  def put(tree, key, val) do
-    if is_defined(key, tree) do
-      update(key, val, tree)
-    else
-      insert(key, val, tree)
+  defp get_1(key, cmp, {key1, value, smaller, bigger}) do #when key < key1 do
+    case cmp.(key, key1) do
+      -1 -> get_1(key, cmp, smaller)
+      1 -> get_1(key, cmp, bigger)
+      0 -> value
     end
   end
 
-  @spec update(key, val, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
+  @spec put(t1, key, val) :: t2 when key: term(), val: term(), t1: t(), t2: t()
 
+  def put(%Aatree{tree: tree, comparator: cmp} = aatree, key, val) do
+    if member?(aatree, key) do
+      %Aatree{aatree | tree: update(key, val, cmp, tree)}
+    else
+      %Aatree{aatree | tree: insert(key, val, cmp, tree)}
+    end
+  end
 
-  def update(key, val, {s, t}) do
-    t1 = update_1(key, val, t)
+  @spec update(key, val, fun, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
+
+  defp update(key, val, cmp, {s, t}) do
+    t1 = update_1(key, val, cmp, t)
     {s, t1}
   end
 
-
-  defp update_1(key, value, {key1, v, smaller, bigger}) when key < key1 do
-    {key1, v, update_1(key, value, smaller), bigger}
-  end
-
-  defp update_1(key, value, {key1, v, smaller, bigger}) when key > key1 do
-    {key1, v, smaller, update_1(key, value, bigger)}
-  end
-
-  defp update_1(key, value, {_, _, smaller, bigger}) do
-    {key, value, smaller, bigger}
+  defp update_1(key, value, cmp, {key1, v, smaller, bigger}) do
+    case cmp.(key, key1) do
+      -1 -> {key1, v, update_1(key, value, cmp, smaller), bigger}
+      1 -> {key1, v, smaller, update_1(key, value, cmp, bigger)}
+      0 -> {key, value, smaller, bigger}
+    end
   end
 
 
-  @spec insert(key, val, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
+  @spec insert(key, val, fun, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
 
-
-  def insert(key, val, {s, t}) when is_integer(s) do
+  defp insert(key, val, cmp, {s, t}) when is_integer(s) do
     s1 = s + 1
-    {s1, insert_1(key, val, t, erlmacro_pow(s1, erlconst_p()))}
+    {s1, insert_1(key, val, cmp, t, erlmacro_pow(s1, erlconst_p()))}
   end
 
-
-  defp insert_1(key, value, {key1, v, smaller, bigger}, s) when key < key1 do
-    case(insert_1(key, value, smaller, erlmacro_div2(s))) do
-      {t1, h1, s1} ->
-        t = {key1, v, t1, bigger}
-        {h2, s2} = count(bigger)
-        h = erlmacro_mul2(:erlang.max(h1, h2))
-        sS = s1 + s2 + 1
-        p = erlmacro_pow(sS, erlconst_p())
-        case(:if) do
-          :if when h > p ->
-            balance(t, sS)
-          :if when true ->
-            {t, h, sS}
+  defp insert_1(key, value, cmp, {key1, v, smaller, bigger} = t, s) do #when key < key1 do
+    case cmp.(key, key1) do
+      -1 ->
+        case(insert_1(key, value, cmp, smaller, erlmacro_div2(s))) do
+          {t1, h1, s1} ->
+            t = {key1, v, t1, bigger}
+            {h2, s2} = count_t(bigger)
+            h = erlmacro_mul2(:erlang.max(h1, h2))
+            sS = s1 + s2 + 1
+            p = erlmacro_pow(sS, erlconst_p())
+            case(:if) do
+              :if when h > p ->
+                balance(t, sS)
+              :if when true ->
+                {t, h, sS}
+            end
+          t1 ->
+            {key1, v, t1, bigger}
         end
-      t1 ->
-        {key1, v, t1, bigger}
+      1 ->
+        case(insert_1(key, value, cmp, bigger, erlmacro_div2(s))) do
+          {t1, h1, s1} ->
+            t = {key1, v, smaller, t1}
+            {h2, s2} = count_t(smaller)
+            h = erlmacro_mul2(:erlang.max(h1, h2))
+            sS = s1 + s2 + 1
+            p = erlmacro_pow(sS, erlconst_p())
+            case(:if) do
+              :if when h > p ->
+                balance(t, sS)
+              :if when true ->
+                {t, h, sS}
+            end
+          t1 ->
+            {key1, v, smaller, t1}
+        end
+      0 -> insert_1(key, value, cmp, t, s)
     end
   end
 
-  defp insert_1(key, value, {key1, v, smaller, bigger}, s) when key > key1 do
-    case(insert_1(key, value, bigger, erlmacro_div2(s))) do
-      {t1, h1, s1} ->
-        t = {key1, v, smaller, t1}
-        {h2, s2} = count(smaller)
-        h = erlmacro_mul2(:erlang.max(h1, h2))
-        sS = s1 + s2 + 1
-        p = erlmacro_pow(sS, erlconst_p())
-        case(:if) do
-          :if when h > p ->
-            balance(t, sS)
-          :if when true ->
-            {t, h, sS}
-        end
-      t1 ->
-        {key1, v, smaller, t1}
-    end
-  end
-
-  defp insert_1(key, value, nil, s) when s === 0 do
+  defp insert_1(key, value, cmp, nil, s) when s === 0 do
     {{key, value, nil, nil}, 1, 1}
   end
 
-  defp insert_1(key, value, nil, _s) do
+  defp insert_1(key, value, cmp, nil, _s) do
     {key, value, nil, nil}
   end
 
-  defp insert_1(key, _, _, _) do
+  defp insert_1(key, _, cmp, _, _) do
     :erlang.error({:key_exists, key})
   end
 
-
-  @spec enter(key, val, tree1) :: tree2 when key: term(), val: term(), tree1: aatree(), tree2: aatree()
-
-
-  def enter(key, val, t) do
-    case(is_defined(key, t)) do
-      true ->
-        update(key, val, t)
-      false ->
-        insert(key, val, t)
-    end
-  end
-
-
-  def count({_, _, nil, nil}) do
+  defp count_t({_, _, nil, nil}) do
     {1, 1}
   end
 
-  def count({_, _, sm, bi}) do
-    {h1, s1} = count(sm)
-    {h2, s2} = count(bi)
+  defp count_t({_, _, sm, bi}) do
+    {h1, s1} = count_t(sm)
+    {h2, s2} = count_t(bi)
     {erlmacro_mul2(:erlang.max(h1, h2)), s1 + s2 + 1}
   end
 
-  def count(nil) do
+  defp count_t(nil) do
     {1, 0}
   end
 
@@ -312,38 +309,29 @@ defmodule Aatree do
   end
 
 
-  @spec delete_any(key, tree1) :: tree2 when key: term(), tree1: aatree(), tree2: aatree()
-
-
-  def delete_any(key, t) do
-    case(is_defined(key, t)) do
-      true ->
-        delete(key, t)
-      false ->
-        t
-    end
-  end
-
-
   @spec delete(tree1, key) :: tree2 when key: term(), tree1: aatree(), tree2: aatree()
 
-  def delete({s, t} = tree, key) when is_integer(s) and s >= 0 do
-    if is_defined(key, tree) do
-      {s - 1, delete_1(key, t)}
+  def delete(%Aatree{tree: {s, t}, comparator: cmp} = aatree, key) when is_integer(s) and s >= 0 do
+    if member?(aatree, key) do
+      new_tree = {s - 1, delete_1(key, cmp, t)}
+      %Aatree{aatree | tree: new_tree}
     else
-      tree
+      aatree
     end
   end
 
 
-  defp delete_1(key, {key1, value, smaller, larger}) when key < key1 do
-    smaller1 = delete_1(key, smaller)
-    {key1, value, smaller1, larger}
-  end
-
-  defp delete_1(key, {key1, value, smaller, bigger}) when key > key1 do
-    bigger1 = delete_1(key, bigger)
-    {key1, value, smaller, bigger1}
+  defp delete_1(key, cmp, {key1, value, smaller, bigger}) do #when key < key1 do
+    case cmp.(key, key1) do
+      -1 -> 
+        smaller1 = delete_1(key, cmp, smaller)
+        {key1, value, smaller1, bigger}
+      1 ->
+        bigger1 = delete_1(key, cmp, bigger)
+        {key1, value, smaller, bigger1}
+      0 ->
+        merge_t(smaller, bigger)
+    end
   end
 
   defp delete_1(_, {_, _, smaller, larger}) do
@@ -351,22 +339,21 @@ defmodule Aatree do
   end
 
 
-  def merge(smaller, nil) do
+  defp merge_t(smaller, nil) do
     smaller
   end
 
-  def merge(nil, larger) do
+  defp merge_t(nil, larger) do
     larger
   end
 
-  def merge(smaller, larger) do
+  defp merge_t(smaller, larger) do
     {key, value, larger1} = take_smallest_1(larger)
     {key, value, smaller, larger1}
   end
 
 
   @spec take_smallest(tree1) :: {key, val, tree2} when tree1: aatree(), tree2: aatree(), key: term(), val: term()
-
 
   def take_smallest({var_size, tree}) when is_integer(var_size) and var_size >= 0 do
     {key, value, larger} = take_smallest_1(tree)
@@ -385,7 +372,6 @@ defmodule Aatree do
 
 
   @spec smallest(tree) :: nil | {key, val} when tree: aatree(), key: term(), val: term()
-
 
   def smallest({_, t} = tree) do
     if is_empty(tree) do
@@ -445,11 +431,11 @@ defmodule Aatree do
   end
 
 
-  @spec to_list(tree) :: list({key, val}) when tree: aatree(), key: term(), val: term()
+  @spec to_list(t) :: list({key, val}) when key: term(), val: term()
 
 
-  def to_list({_, t}) do
-    to_list(t, [])
+  def to_list(%Aatree{tree: {_, t}}) do
+    to_list_t(t, [])
   end
 
 
@@ -458,51 +444,46 @@ defmodule Aatree do
   end
 
 
-  def to_list({key, value, small, big}, l) do
+  defp to_list_t({key, value, small, big}, l) do
     to_list(small, [{key, value} | to_list(big, l)])
   end
 
-  def to_list(nil, l) do
+  defp to_list(nil, l) do
     l
   end
 
 
-  @spec keys(tree) :: list(key) when tree: aatree(), key: term()
+  @spec keys(t) :: list(key) when key: term()
 
-
-  def keys({_, t}) do
-    keys(t, [])
+  def keys(%Aatree{tree: {_, t}}) do
+    keys_t(t, [])
   end
 
-
-  def keys({key, _value, small, big}, l) do
-    keys(small, [key | keys(big, l)])
+  defp keys_t({key, _value, small, big}, l) do
+    keys_t(small, [key | keys_t(big, l)])
   end
 
-  def keys(nil, l) do
+  defp keys_t(nil, l) do
     l
   end
 
 
-  @spec values(tree) :: list(val) when tree: aatree(), val: term()
+  @spec values(t) :: list(val) when val: term()
 
-
-  def values({_, t}) do
-    values(t, [])
+  def values(%Aatree{tree: {_, t}}) do
+    values_t(t, [])
   end
 
-
-  def values({_key, value, small, big}, l) do
-    values(small, [value | values(big, l)])
+  defp values_t({_key, value, small, big}, l) do
+    values_t(small, [value | values_t(big, l)])
   end
 
-  def values(nil, l) do
+  defp values_t(nil, l) do
     l
   end
 
 
   @spec iterator(tree) :: iter when tree: aatree(), iter: iter()
-
 
   def iterator({_, t}) do
     iterator_1(t)
