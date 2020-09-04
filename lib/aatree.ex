@@ -324,7 +324,7 @@ defmodule Aatree do
 
   defp delete_1(key, cmp, {key1, value, smaller, bigger}) do #when key < key1 do
     case cmp.(key, key1) do
-      -1 -> 
+      -1 ->
         smaller1 = delete_1(key, cmp, smaller)
         {key1, value, smaller1, bigger}
       1 ->
@@ -336,7 +336,7 @@ defmodule Aatree do
   end
 
   defp delete_1(_, {_, _, smaller, larger}) do
-    merge(smaller, larger)
+    merge_t(smaller, larger)
   end
 
 
